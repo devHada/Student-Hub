@@ -1,6 +1,6 @@
-const GROQ_KEY = "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";
+const GROQ_KEY = import.meta.env.VITE_GROQ_API_KEY;
 const API_URL = "https://api.groq.com/openai/v1/chat/completions";
-const MODEL = "llama-3.3-70b-versatile"; // or "mixtral-8x7b-32768", "gemma2-9b-it"
+const MODEL = "llama-3.3-70b-versatile";
 
 export async function askProfessor(systemPrompt, messages, fileData = null) {
   const formattedMessages = [
