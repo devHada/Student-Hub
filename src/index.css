@@ -1,0 +1,126 @@
+@import "tailwindcss";
+
+* {
+  transition:
+    background-color 0.4s ease,
+    color 0.3s ease,
+    border-color 0.3s ease;
+}
+
+button,
+a,
+[role="button"] {
+  cursor: pointer;
+}
+body {
+  font-family: "Inter", sans-serif;
+  scrollbar-width: none;
+}
+.landing::-webkit-scrollbar {
+  display: none;
+}
+.overflow-y-auto {
+  scrollbar-width: none;
+}
+
+.overflow-y-auto::-webkit-scrollbar {
+  display: none;
+}
+
+h1,
+h2,
+h3,
+h4 {
+  font-family: "Playfair Display", serif;
+}
+/* VINTAGE - old paper, sepia, dusty library */
+:root {
+  --bg: #f2e8d9;
+  --bg-secondary: #e8d5b7;
+  --primary: #8b4513;
+  --primary-hover: #6b3410;
+  --text: #2c1810;
+  --text-secondary: #7a5c3a;
+  --accent: #c4922a;
+  --border: #c4a882;
+  --card: #fdf6e3;
+  --sidebar: #1e0f05;
+}
+
+/* DARK - deep black, electric purple */
+[data-theme="dark"] {
+  --bg: #0a0a0a;
+  --bg-secondary: #141414;
+  --primary: #3b82f6;
+  --primary-hover: #2563eb;
+  --text: #f1f5f9;
+  --text-secondary: #94a3b8;
+  --accent: #60a5fa;
+  --border: #1e1e1e;
+  --card: #141414;
+  --sidebar: #050505;
+}
+
+/* LIGHT - pure clean minimal */
+[data-theme="light"] {
+  --bg: #ffffff;
+  --bg-secondary: #f8fafc;
+  --primary: #2563eb;
+  --primary-hover: #1d4ed8;
+  --text: #0f172a;
+  --text-secondary: #475569;
+  --accent: #3b82f6;
+  --border: #e2e8f0;
+  --card: #f1f5f9;
+  --sidebar: #0f172a;
+}
+
+/* SEA - deep ocean, bioluminescent */
+[data-theme="tide"] {
+  --bg: #e0f7fa;
+  --bg-secondary: #b2ebf2;
+  --primary: #0077b6;
+  --primary-hover: #005f8e;
+  --text: #003049;
+  --text-secondary: #0096c7;
+  --accent: #00b4d8;
+  --border: #90e0ef;
+  --card: #caf0f8;
+  --sidebar: #023e8a;
+}
+
+/* SPACE - deep cosmos, nebula purple */
+[data-theme="cosmos"] {
+  --bg: #05001a;
+  --bg-secondary: #0d0028;
+  --primary: #ff006e;
+  --primary-hover: #cc0058;
+  --text: #f8e8ff;
+  --text-secondary: #d4a8ff;
+  --accent: #bf5fff;
+  --border: #2a0050;
+  --card: #0d0028;
+  --sidebar: #020008;
+}
+
+/* SUPERNOVA */
+[data-theme="supernova"] {
+  --bg: #0a0500;
+  --bg-secondary: #1a0d00;
+  --primary: #ffaa00;
+  --primary-hover: #cc8800;
+  --text: #fff5cc;
+  --text-secondary: #ffdd80;
+  --accent: #ff6600;
+  --border: #2a1500;
+  --card: #1a0d00;
+  --sidebar: #050200;
+}
+
+/* SMOOTH THEME TRANSITION */
+* {
+  transition:
+    background-color 0.4s ease,
+    color 0.3s ease,
+    border-color 0.3s ease;
+}
