@@ -1,14 +1,18 @@
 import { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Send, Paperclip } from "lucide-react";
+import { Send, Paperclip, X, FileText, Image } from "lucide-react";
 import { sendMessage } from "../../firebase/groups";
 import { useAuth } from "../../context/AuthContext";
+import { getStorage, ref, uploadBytes, getDownloadURL } from "firebase/storage";
 
 export default function ChatPanel({ groupId, messages, myColor }) {
   const { user } = useAuth();
   const [input, setInput] = useState("");
+  const [selectedFile, setSelectedFile] = useState(null);
+  const [uploading, setUploading] = useState(false);
   const bottomRef = useRef(null);
   const textareaRef = useRef(null);
+  const fileInputRef = useRef(null);
 
   useEffect(
     function () {
@@ -17,14 +21,51 @@ export default function ChatPanel({ groupId, messages, myColor }) {
     [messages],
   );
 
+  async function handleFileSelect(e) {
+    const file = e.target.files[0];
+    if (!file) return;
+    setSelectedFile(file);
+    e.target.value = "";
+  }
+
+  function clearSelectedFile() {
+    setSelectedFile(null);
+  }
+
   async function handleSend() {
-    if (!input.trim()) return;
-    const text = input.trim();
-    setInput("");
-    if (textareaRef.current) {
-      textareaRef.current.style.height = "40px";
+    if (!input.trim() && !selectedFile) return;
+
+    if (selectedFile) {
+      setUploading(true);
+      try {
+        const storage = getStorage();
+        const storageRef = ref(
+          storage,
+          `group-files/${groupId}/${Date.now()}_${selectedFile.name}`,
+        );
+        const snapshot = await uploadBytes(storageRef, selectedFile);
+        const downloadURL = await getDownloadURL(snapshot.ref);
+
+        const isImage = selectedFile.type.startsWith("image/");
+        const fileMessage = isImage
+          ? `__IMG__${downloadURL}__NAME__${selectedFile.name}`
+          : `__FILE__${downloadURL}__NAME__${selectedFile.name}`;
+
+        await sendMessage(groupId, user, fileMessage, myColor);
+        setSelectedFile(null);
+      } catch (err) {
+        console.error("File upload failed:", err);
+      } finally {
+        setUploading(false);
+      }
     }
-    await sendMessage(groupId, user, text, myColor);
+
+    if (input.trim()) {
+      const text = input.trim();
+      setInput("");
+      if (textareaRef.current) textareaRef.current.style.height = "40px";
+      await sendMessage(groupId, user, text, myColor);
+    }
   }
 
   function handleKeyDown(e) {
@@ -60,6 +101,58 @@ export default function ChatPanel({ groupId, messages, myColor }) {
     } catch (e) {
       return "";
     }
+  }
+
+  function renderMessageContent(msg, isMe) {
+    const text = msg.text || "";
+
+    if (text.startsWith("__IMG__")) {
+      const url = text.replace("__IMG__", "").split("__NAME__")[0];
+      const name = text.split("__NAME__")[1] || "image";
+      return (
+        <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
+          <img
+            src={url}
+            alt={name}
+            style={{
+              maxWidth: "220px",
+              maxHeight: "180px",
+              borderRadius: "12px",
+              objectFit: "cover",
+              cursor: "pointer",
+            }}
+            onClick={() => window.open(url, "_blank")}
+          />
+          <span style={{ fontSize: "11px", opacity: 0.7 }}>{name}</span>
+        </div>
+      );
+    }
+
+    if (text.startsWith("__FILE__")) {
+      const url = text.replace("__FILE__", "").split("__NAME__")[0];
+      const name = text.split("__NAME__")[1] || "file";
+      return (
+        <a
+          href={url}
+          target="_blank"
+          rel="noopener noreferrer"
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: "8px",
+            color: isMe ? "#fff" : "var(--text)",
+            textDecoration: "none",
+          }}
+        >
+          <FileText size={16} />
+          <span style={{ fontSize: "13px", textDecoration: "underline" }}>
+            {name}
+          </span>
+        </a>
+      );
+    }
+
+    return text;
   }
 
   return (
@@ -127,7 +220,6 @@ export default function ChatPanel({ groupId, messages, myColor }) {
                   gap: "8px",
                 }}
               >
-                {/* Avatar — both sides */}
                 <div
                   style={{
                     width: "32px",
@@ -148,7 +240,6 @@ export default function ChatPanel({ groupId, messages, myColor }) {
                   {msg.avatar}
                 </div>
 
-                {/* Bubble + name + time */}
                 <div
                   style={{
                     display: "flex",
@@ -158,7 +249,6 @@ export default function ChatPanel({ groupId, messages, myColor }) {
                     maxWidth: "65%",
                   }}
                 >
-                  {/* Name */}
                   <span
                     style={{
                       fontSize: "11px",
@@ -172,7 +262,6 @@ export default function ChatPanel({ groupId, messages, myColor }) {
                     {isMe ? "You" : msg.name}
                   </span>
 
-                  {/* Bubble */}
                   <div
                     style={{
                       background: isMe ? myColor : "var(--card)",
@@ -191,10 +280,9 @@ export default function ChatPanel({ groupId, messages, myColor }) {
                       border: isMe ? "none" : "1px solid var(--border)",
                     }}
                   >
-                    {msg.text}
+                    {renderMessageContent(msg, isMe)}
                   </div>
 
-                  {/* Time */}
                   <span
                     style={{
                       fontSize: "10px",
@@ -220,6 +308,60 @@ export default function ChatPanel({ groupId, messages, myColor }) {
         style={{ height: "1px", background: "var(--border)", flexShrink: 0 }}
       />
 
+      {/* File preview bar */}
+      <AnimatePresence>
+        {selectedFile && (
+          <motion.div
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: "auto" }}
+            exit={{ opacity: 0, height: 0 }}
+            style={{
+              padding: "8px 16px",
+              background: "var(--card)",
+              borderBottom: "1px solid var(--border)",
+              display: "flex",
+              alignItems: "center",
+              gap: "8px",
+              flexShrink: 0,
+            }}
+          >
+            {selectedFile.type.startsWith("image/") ? (
+              <Image size={14} style={{ color: myColor }} />
+            ) : (
+              <FileText size={14} style={{ color: myColor }} />
+            )}
+            <span
+              style={{
+                fontSize: "12px",
+                color: "var(--text)",
+                fontFamily: "Inter, sans-serif",
+                flex: 1,
+                overflow: "hidden",
+                textOverflow: "ellipsis",
+                whiteSpace: "nowrap",
+              }}
+            >
+              {selectedFile.name}
+            </span>
+            <motion.button
+              whileTap={{ scale: 0.9 }}
+              onClick={clearSelectedFile}
+              style={{
+                background: "none",
+                border: "none",
+                cursor: "pointer",
+                color: "var(--text-secondary)",
+                padding: "2px",
+                display: "flex",
+                alignItems: "center",
+              }}
+            >
+              <X size={14} />
+            </motion.button>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* Input bar */}
       <div
         style={{
@@ -231,13 +373,23 @@ export default function ChatPanel({ groupId, messages, myColor }) {
           flexShrink: 0,
         }}
       >
+        {/* Hidden file input */}
+        <input
+          type="file"
+          ref={fileInputRef}
+          style={{ display: "none" }}
+          onChange={handleFileSelect}
+          accept="image/*,.pdf,.doc,.docx,.txt,.ppt,.pptx,.xls,.xlsx"
+        />
+
         <motion.button
           whileHover={{ scale: 1.15 }}
           whileTap={{ scale: 0.9 }}
+          onClick={() => fileInputRef.current.click()}
           style={{
-            background: "none",
+            background: selectedFile ? myColor + "22" : "none",
             border: "none",
-            color: "var(--text-secondary)",
+            color: selectedFile ? myColor : "var(--text-secondary)",
             cursor: "pointer",
             flexShrink: 0,
             padding: "6px",
@@ -267,7 +419,9 @@ export default function ChatPanel({ groupId, messages, myColor }) {
             }}
             onKeyDown={handleKeyDown}
             onInput={handleInput}
-            placeholder="Start chatting..."
+            placeholder={
+              selectedFile ? "Add a caption..." : "Start chatting..."
+            }
             rows={1}
             style={{
               flex: 1,
@@ -292,25 +446,51 @@ export default function ChatPanel({ groupId, messages, myColor }) {
           whileHover={{ scale: 1.1 }}
           whileTap={{ scale: 0.9 }}
           onClick={handleSend}
+          disabled={uploading}
           style={{
             width: "42px",
             height: "42px",
             borderRadius: "50%",
-            background: input.trim() ? myColor : "var(--border)",
+            background:
+              (input.trim() || selectedFile) && !uploading
+                ? myColor
+                : "var(--border)",
             border: "none",
-            cursor: "pointer",
+            cursor: uploading ? "wait" : "pointer",
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
             flexShrink: 0,
             transition: "background 0.2s",
-            boxShadow: input.trim() ? `0 4px 12px ${myColor}66` : "none",
+            boxShadow:
+              (input.trim() || selectedFile) && !uploading
+                ? `0 4px 12px ${myColor}66`
+                : "none",
           }}
         >
-          <Send
-            size={16}
-            style={{ color: input.trim() ? "#fff" : "var(--text-secondary)" }}
-          />
+          {uploading ? (
+            <motion.div
+              animate={{ rotate: 360 }}
+              transition={{ repeat: Infinity, duration: 0.8, ease: "linear" }}
+              style={{
+                width: "16px",
+                height: "16px",
+                border: "2px solid #ffffff44",
+                borderTop: "2px solid #fff",
+                borderRadius: "50%",
+              }}
+            />
+          ) : (
+            <Send
+              size={16}
+              style={{
+                color:
+                  input.trim() || selectedFile
+                    ? "#fff"
+                    : "var(--text-secondary)",
+              }}
+            />
+          )}
         </motion.button>
       </div>
     </div>

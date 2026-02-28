@@ -13,6 +13,8 @@ import Board from "./pages/Board";
 import LoadingScreen from "./pages/LoadingScreen";
 import Toolkit from "./pages/Toolkit";
 import Profile from "./pages/Profile";
+import Docs from "./pages/Docs";
+import Playground from "./pages/Playground";
 
 function ProtectedRoute({ children }) {
   const { user } = useAuth();
@@ -51,7 +53,8 @@ function App() {
       <Route path="/notes" element={<Notes />} />
       <Route path="/focus" element={<FocusTimer />} />
       <Route path="/board" element={<Board />} />
-
+      <Route path="/docs" element={<Docs />} />
+      <Route path="/playground" element={<Playground />} />
       <Route
         path="/dashboard"
         element={
