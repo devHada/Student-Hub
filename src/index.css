@@ -124,3 +124,20 @@ h4 {
     color 0.3s ease,
     border-color 0.3s ease;
 }
+
+@media (max-width: 767px) {
+  .ml-64 {
+    margin-left: 0 !important;
+  }
+
+  /* Fix pages that use inline style flex-1 ml-64 pattern */
+  .flex-1.ml-64 {
+    margin-left: 0 !important;
+    width: 100% !important;
+  }
+
+  /* Push content down so hamburger button doesn't overlap */
+  .app-screen > div:not([class*="fixed"]) {
+    padding-top: 60px;
+  }
+}

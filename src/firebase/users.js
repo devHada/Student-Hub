@@ -7,6 +7,14 @@ import {
   serverTimestamp,
 } from "firebase/firestore";
 
+function getWeekKey() {
+  const now = new Date();
+  const day = now.getDay();
+  const diff = now.getDate() - day + (day === 0 ? -6 : 1);
+  const monday = new Date(now.setDate(diff));
+  return `${monday.getFullYear()}-${monday.getMonth() + 1}-${monday.getDate()}`;
+}
+
 export async function createUserProfile(user) {
   const ref = doc(db, "users", user.uid);
   const snap = await getDoc(ref);
@@ -19,6 +27,8 @@ export async function createUserProfile(user) {
       level: 1,
       streak: 0,
       studyTime: 0,
+      weeklyXP: 0,
+      weekKey: getWeekKey(),
       lastActive: serverTimestamp(),
       createdAt: serverTimestamp(),
     });
@@ -39,7 +49,16 @@ export async function updateXP(uid, amount) {
   const current = snap.data();
   const newXP = current.xp + amount;
   const newLevel = Math.floor(newXP / 1000) + 1;
-  await updateDoc(ref, { xp: newXP, level: newLevel });
+
+  const currentWeekKey = getWeekKey();
+  const isNewWeek = current.weekKey !== currentWeekKey;
+
+  await updateDoc(ref, {
+    xp: newXP,
+    level: newLevel,
+    weeklyXP: isNewWeek ? amount : (current.weeklyXP || 0) + amount,
+    weekKey: currentWeekKey,
+  });
 }
 
 export async function updateStudyTime(uid, secondsToAdd) {
@@ -47,9 +66,17 @@ export async function updateStudyTime(uid, secondsToAdd) {
   const snap = await getDoc(ref);
   if (!snap.exists()) return;
   const current = snap.data();
+  const xpGained = Math.floor(secondsToAdd / 60);
+  const newXP = current.xp + xpGained;
+
+  const currentWeekKey = getWeekKey();
+  const isNewWeek = current.weekKey !== currentWeekKey;
+
   await updateDoc(ref, {
     studyTime: (current.studyTime || 0) + secondsToAdd,
-    xp: current.xp + Math.floor(secondsToAdd / 60),
+    xp: newXP,
+    weeklyXP: isNewWeek ? xpGained : (current.weeklyXP || 0) + xpGained,
+    weekKey: currentWeekKey,
     lastActive: serverTimestamp(),
   });
 }

@@ -7,7 +7,6 @@ import { AnimatePresence, motion } from "framer-motion";
 import Sidebar from "../components/Sidebar";
 import { quotes } from "../data/landingData";
 import { getUserProfile } from "../firebase/users";
-
 import { subscribeToBoardItems } from "../firebase/board";
 
 function getGreeting() {
@@ -24,6 +23,16 @@ function getGreetingEmoji() {
   return "🌙";
 }
 
+const GRAPH_DATA = [
+  { day: "Mon", height: 65 },
+  { day: "Tue", height: 82 },
+  { day: "Wed", height: 48 },
+  { day: "Thu", height: 91 },
+  { day: "Fri", height: 73 },
+  { day: "Sat", height: 35 },
+  { day: "Sun", height: 57 },
+];
+
 function Dashboard() {
   const navigate = useNavigate();
   const { user } = useAuth();
@@ -33,15 +42,8 @@ function Dashboard() {
     () => quotes[Math.floor(Math.random() * quotes.length)],
   );
   const [boardItems, setBoardItems] = useState([]);
-
   const [profile, setProfile] = useState(null);
   const name = profile?.name || user?.email?.split("@")[0] || "Student";
-
-  useEffect(() => {
-    if (user) {
-      getUserProfile(user.uid).then((data) => setProfile(data));
-    }
-  }, [user]);
 
   useEffect(() => {
     if (!user) return;
@@ -51,39 +53,49 @@ function Dashboard() {
     );
     return () => unsub();
   }, [user]);
+
+  const studyTime = profile?.studyTime || 24;
+  const streak = profile?.streak || 7;
+  const xp = profile?.xp || 340;
+  const level = profile?.level || 1;
+
   return (
     <div
       className="h-screen flex overflow-hidden"
       style={{ background: "var(--bg)" }}
     >
-      {/* SIDEBAR */}
       <Sidebar />
 
-      {/* MAIN */}
-      <div className="flex-1 ml-64 flex flex-col h-screen overflow-hidden">
+      <div className="flex-1 md:ml-64 flex flex-col h-screen overflow-hidden">
         {/* NAVBAR */}
         <div
-          className="flex items-center justify-between px-8 py-4"
+          className="flex items-center justify-between px-4 md:px-8 py-4 mt-14 md:mt-0"
           style={{
             background: "var(--bg)",
             borderBottom: "1px solid var(--border)",
           }}
         >
           <div>
-            <h2 className="text-2xl font-bold" style={{ color: "var(--text)" }}>
+            <h2
+              className="text-lg md:text-2xl font-bold"
+              style={{ color: "var(--text)" }}
+            >
               {getGreeting()}, {name} {getGreetingEmoji()}
             </h2>
-            <p className="text-sm" style={{ color: "var(--text-secondary)" }}>
+            <p
+              className="text-xs md:text-sm"
+              style={{ color: "var(--text-secondary)" }}
+            >
               Welcome back to your study space
             </p>
           </div>
 
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2 md:gap-4">
             {/* THEME SELECTOR */}
             <div className="relative">
               <button
                 onClick={() => setShowThemeDropdown(!showThemeDropdown)}
-                className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm"
+                className="flex items-center gap-2 px-2 md:px-3 py-2 rounded-lg text-sm"
                 style={{
                   background: "var(--card)",
                   color: "var(--text)",
@@ -91,7 +103,7 @@ function Dashboard() {
                 }}
               >
                 <Palette size={16} />
-                <span className="capitalize">{theme}</span>
+                <span className="capitalize hidden md:inline">{theme}</span>
               </button>
 
               <AnimatePresence>
@@ -136,7 +148,7 @@ function Dashboard() {
             {/* PROFILE AVATAR */}
             <div
               onClick={() => navigate("/profile")}
-              className="w-10 h-10 rounded-full flex items-center justify-center text-white font-bold"
+              className="w-9 h-9 md:w-10 md:h-10 rounded-full flex items-center justify-center text-white font-bold text-sm"
               style={{ background: "var(--primary)", cursor: "pointer" }}
             >
               {name[0].toUpperCase()}
@@ -145,18 +157,16 @@ function Dashboard() {
         </div>
 
         {/* BENTO GRID */}
-        <div className="p-8 flex-1 overflow-y-auto">
-          <div
-            className="grid grid-cols-3 gap-6"
-            style={{ gridTemplateRows: "auto auto auto" }}
-          >
-            {/* ACTIVITY GRAPH */}
+        <div className="p-4 md:p-8 flex-1 overflow-y-auto">
+          {/* Mobile: single column, Tablet: 2 col, Desktop: 3 col */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
+            {/* ACTIVITY GRAPH — full width on mobile, 2/3 on desktop */}
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.1 }}
               onClick={() => navigate("/focus")}
-              className="col-span-2 rounded-2xl p-6"
+              className="col-span-1 sm:col-span-2 lg:col-span-2 rounded-2xl p-4 md:p-6"
               style={{
                 background: "var(--card)",
                 border: "1px solid var(--border)",
@@ -172,30 +182,61 @@ function Dashboard() {
               >
                 Your study time this week
               </p>
-              <div className="flex items-end gap-3 h-24">
-                {["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].map(
-                  (day, i) => (
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "flex-end",
+                  gap: "8px",
+                  height: "100px",
+                }}
+              >
+                {GRAPH_DATA.map((item, i) => (
+                  <div
+                    key={item.day}
+                    style={{
+                      flex: 1,
+                      display: "flex",
+                      flexDirection: "column",
+                      alignItems: "center",
+                      gap: "6px",
+                      height: "100%",
+                    }}
+                  >
                     <div
-                      key={day}
-                      className="flex-1 flex flex-col items-center gap-1"
+                      style={{
+                        flex: 1,
+                        width: "100%",
+                        display: "flex",
+                        alignItems: "flex-end",
+                      }}
                     >
-                      <div
-                        className="w-full rounded-t-md"
+                      <motion.div
+                        initial={{ height: 0 }}
+                        animate={{ height: `${item.height}%` }}
+                        transition={{
+                          delay: 0.2 + i * 0.05,
+                          duration: 0.6,
+                          ease: "easeOut",
+                        }}
                         style={{
-                          height: `${[60, 80, 45, 90, 70, 30, 50][i]}%`,
+                          width: "100%",
                           background: "var(--primary)",
-                          opacity: 0.8,
+                          borderRadius: "6px 6px 0 0",
+                          opacity: 0.85,
                         }}
                       />
-                      <span
-                        className="text-xs"
-                        style={{ color: "var(--text-secondary)" }}
-                      >
-                        {day}
-                      </span>
                     </div>
-                  ),
-                )}
+                    <span
+                      style={{
+                        fontSize: "11px",
+                        color: "var(--text-secondary)",
+                        fontFamily: "Inter, sans-serif",
+                      }}
+                    >
+                      {item.day}
+                    </span>
+                  </div>
+                ))}
               </div>
             </motion.div>
 
@@ -210,14 +251,15 @@ function Dashboard() {
                 background: "var(--card)",
                 border: "1px solid var(--border)",
                 cursor: "pointer",
+                minHeight: "160px",
               }}
             >
-              <div className="text-5xl mb-2">🔥</div>
+              <div className="text-4xl md:text-5xl mb-2">🔥</div>
               <h3
-                className="text-4xl font-bold"
+                className="text-3xl md:text-4xl font-bold"
                 style={{ color: "var(--primary)" }}
               >
-                {profile?.streak || 0}
+                {streak}
               </h3>
               <p
                 className="text-sm mt-1"
@@ -244,6 +286,7 @@ function Dashboard() {
                 background: "var(--card)",
                 border: "1px solid var(--border)",
                 cursor: "pointer",
+                minHeight: "160px",
               }}
             >
               <div className="text-3xl mb-2">⏱️</div>
@@ -251,7 +294,7 @@ function Dashboard() {
                 className="text-2xl font-bold"
                 style={{ color: "var(--primary)" }}
               >
-                {profile?.studyTime || 0}h
+                {studyTime}h
               </h3>
               <p
                 className="text-sm mt-1"
@@ -267,7 +310,7 @@ function Dashboard() {
               </p>
             </motion.div>
 
-            {/* XP THIS WEEK */}
+            {/* XP / LEVEL */}
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
@@ -278,6 +321,7 @@ function Dashboard() {
                 background: "var(--card)",
                 border: "1px solid var(--border)",
                 cursor: "pointer",
+                minHeight: "160px",
               }}
             >
               <div className="text-3xl mb-2">⚡</div>
@@ -285,31 +329,31 @@ function Dashboard() {
                 className="text-2xl font-bold"
                 style={{ color: "var(--primary)" }}
               >
-                {profile?.xp || 0}
+                {xp}
               </h3>
               <p
                 className="text-sm mt-1"
                 style={{ color: "var(--text-secondary)" }}
               >
-                Level {profile?.level || 1}
+                Level {level}
               </p>
               <div
                 className="w-full h-2 rounded-full mt-3"
                 style={{ background: "var(--border)" }}
               >
-                <div
+                <motion.div
+                  initial={{ width: 0 }}
+                  animate={{ width: `${(xp % 1000) / 10}%` }}
+                  transition={{ delay: 0.6, duration: 0.8 }}
                   className="h-2 rounded-full"
-                  style={{
-                    width: `${((profile?.xp || 0) % 1000) / 10}%`,
-                    background: "var(--primary)",
-                  }}
+                  style={{ background: "var(--primary)" }}
                 />
               </div>
               <p
                 className="text-xs mt-1"
                 style={{ color: "var(--text-secondary)" }}
               >
-                {(profile?.xp || 0) % 1000} / 1000 XP to next level
+                {xp % 1000} / 1000 XP to next level
               </p>
             </motion.div>
 
@@ -319,11 +363,12 @@ function Dashboard() {
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.5 }}
               onClick={() => navigate("/board")}
-              className="col-span-1 row-span-2 rounded-2xl p-6"
+              className="col-span-1 rounded-2xl p-6"
               style={{
                 background: "var(--card)",
                 border: "1px solid var(--border)",
                 cursor: "pointer",
+                minHeight: "160px",
               }}
             >
               <h3 className="font-bold mb-1" style={{ color: "var(--text)" }}>
@@ -337,19 +382,33 @@ function Dashboard() {
               </p>
               <div className="space-y-3">
                 {boardItems.length === 0 ? (
-                  <p
-                    className="text-sm"
-                    style={{ color: "var(--text-secondary)", opacity: 0.5 }}
-                  >
-                    No items yet. Visit Board to add some!
-                  </p>
+                  <>
+                    {[
+                      "Math Chapter 5 Notes",
+                      "Physics Lab Report",
+                      "History Essay Draft",
+                    ].map((t, i) => (
+                      <div
+                        key={i}
+                        className="p-3 rounded-lg text-sm"
+                        style={{
+                          background: "var(--bg)",
+                          color: "var(--text-secondary)",
+                          borderLeft: "3px solid var(--primary)",
+                          opacity: 0.6,
+                        }}
+                      >
+                        {t}
+                      </div>
+                    ))}
+                  </>
                 ) : (
                   boardItems.slice(0, 3).map((item) => (
                     <div
                       key={item.id}
                       className="p-3 rounded-lg text-sm"
                       style={{
-                        background: "var(--bg-secondary)",
+                        background: "var(--bg)",
                         color: "var(--text)",
                         borderLeft: "3px solid var(--primary)",
                       }}
@@ -376,6 +435,7 @@ function Dashboard() {
               style={{
                 background: "var(--card)",
                 border: "1px solid var(--border)",
+                minHeight: "160px",
               }}
             >
               <h3 className="font-bold mb-3" style={{ color: "var(--text)" }}>
@@ -402,7 +462,11 @@ function Dashboard() {
               transition={{ delay: 0.7 }}
               onClick={() => navigate("/ai")}
               className="col-span-1 rounded-2xl p-6 flex flex-col items-center justify-center text-center"
-              style={{ background: "var(--primary)", cursor: "pointer" }}
+              style={{
+                background: "var(--primary)",
+                cursor: "pointer",
+                minHeight: "160px",
+              }}
             >
               <div className="text-4xl mb-3">🤖</div>
               <h3 className="font-bold text-white mb-1">Chat with AI</h3>

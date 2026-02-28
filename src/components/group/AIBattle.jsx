@@ -1,9 +1,9 @@
-import { useState, useEffect } from "react";
-import { motion, AnimatePresence } from "framer-motion";
+import { useState, useEffect, useRef } from "react";
+import { motion } from "framer-motion";
 import { Swords, Trophy, X, Loader, Crown, Zap } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
 import { saveBattleResult } from "../../firebase/groups";
-import { log } from "firebase/firestore/pipelines";
+import { sendMessage } from "../../firebase/groups";
 
 const SUBJECTS = [
   "Mathematics",
@@ -20,7 +20,7 @@ const SUBJECTS = [
 
 export default function AIBattle({ group, groupId, onClose }) {
   const { user } = useAuth();
-  const [phase, setPhase] = useState("select"); // select, loading, battle, results
+  const [phase, setPhase] = useState("select");
   const [subject, setSubject] = useState("");
   const [questions, setQuestions] = useState([]);
   const [currentQ, setCurrentQ] = useState(0);
@@ -30,7 +30,17 @@ export default function AIBattle({ group, groupId, onClose }) {
   const [timeLeft, setTimeLeft] = useState(15);
   const [results, setResults] = useState(null);
 
-  // Timer per question
+  const scoresRef = useRef({});
+
+  function updateScores(uid) {
+    const updated = {
+      ...scoresRef.current,
+      [uid]: (scoresRef.current[uid] || 0) + 1,
+    };
+    scoresRef.current = updated;
+    setScores(updated);
+  }
+
   useEffect(
     function () {
       if (phase !== "battle") return;
@@ -62,47 +72,58 @@ export default function AIBattle({ group, groupId, onClose }) {
 
   async function generateQuestions(subj) {
     setPhase("loading");
+    // Send battle announcement to group chat
+    await sendMessage(
+      groupId,
+      { uid: "system", displayName: "⚔️ AI Battle", email: "battle@system" },
+      `⚔️ AI Battle has started! Subject: ${subj} — Answer fast, highest weekly XP earns group leader!`,
+      "#2ecc71",
+    );
+
     try {
       const response = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=AIzaSyC1-norwif8jmgJmLaLiUw--VfD1K8IaNg`,
+        "https://api.groq.com/openai/v1/chat/completions",
         {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${import.meta.env.VITE_GROQ_API_KEY}`,
+          },
           body: JSON.stringify({
-            contents: [
+            model: "llama-3.3-70b-versatile",
+            messages: [
               {
-                parts: [
-                  {
-                    text: `Generate exactly 5 multiple choice quiz questions about ${subj}. Return ONLY a valid JSON array with no markdown, no code blocks, no explanation. Format exactly like this: [{"question":"...","options":["A","B","C","D"],"correct":0}] where correct is the index 0-3 of the correct option.`,
-                  },
-                ],
+                role: "user",
+                content: `Generate exactly 5 multiple choice quiz questions about ${subj}. Return ONLY a valid JSON array with no markdown, no code blocks, no explanation. Format exactly like this: [{"question":"...","options":["A","B","C","D"],"correct":0}] where correct is the index 0-3 of the correct option.`,
               },
             ],
-            generationConfig: { temperature: 0.7, maxOutputTokens: 1500 },
+            temperature: 0.7,
+            max_tokens: 1500,
           }),
         },
       );
+
       const data = await response.json();
-      console.log("Gemini response:", JSON.stringify(data));
-      const text = data.candidates[0].content.parts[0].text;
+      console.log("Groq response:", JSON.stringify(data));
+
+      const text = data.choices[0].message.content;
       const clean = text.replace(/```json|```/g, "").trim();
       const parsed = JSON.parse(clean);
       setQuestions(parsed);
 
-      // Init scores
       const initScores = {};
       group.members.forEach(function (m) {
         initScores[m.uid] = 0;
       });
+      scoresRef.current = initScores;
       setScores(initScores);
 
       setPhase("battle");
       setCurrentQ(0);
     } catch (e) {
-      console.log("Battle error", e);
-
+      console.error("Battle error", e);
       setPhase("select");
-      alert("Failed to generate questions. Try again.");
+      alert("Failed to generate questions. Please try again.");
     }
   }
 
@@ -113,9 +134,7 @@ export default function AIBattle({ group, groupId, onClose }) {
 
     const isCorrect = optionIndex === questions[currentQ].correct;
     if (isCorrect) {
-      setScores(function (prev) {
-        return { ...prev, [user.uid]: (prev[user.uid] || 0) + 1 };
-      });
+      updateScores(user.uid);
     }
 
     setTimeout(function () {
@@ -137,14 +156,14 @@ export default function AIBattle({ group, groupId, onClose }) {
 
   async function endBattle() {
     setPhase("results");
-    // Find winner
-    const sorted = Object.entries(scores).sort(function (a, b) {
+    const finalScores = scoresRef.current;
+    const sorted = Object.entries(finalScores).sort(function (a, b) {
       return b[1] - a[1];
     });
-    const winnerId = sorted[0][0];
-    const res = { scores, winnerId, sorted };
+    const res = { scores: finalScores, sorted };
     setResults(res);
-    await saveBattleResult(groupId, scores, winnerId);
+    // Pass group so saveBattleResult can compare weeklyXP across all members
+    await saveBattleResult(groupId, finalScores, group);
   }
 
   function getMemberByUid(uid) {
@@ -185,7 +204,6 @@ export default function AIBattle({ group, groupId, onClose }) {
           position: "relative",
         }}
       >
-        {/* Close */}
         {phase !== "battle" && (
           <button
             onClick={onClose}
@@ -203,7 +221,7 @@ export default function AIBattle({ group, groupId, onClose }) {
           </button>
         )}
 
-        {/* PHASE: SELECT SUBJECT */}
+        {/* PHASE: SELECT */}
         {phase === "select" && (
           <div
             style={{ display: "flex", flexDirection: "column", gap: "20px" }}
@@ -241,7 +259,7 @@ export default function AIBattle({ group, groupId, onClose }) {
                   marginTop: "6px",
                 }}
               >
-                5 questions. 15 seconds each. Highest score wins and becomes
+                5 questions. 15 seconds each. Weekly top XP earner becomes
                 leader.
               </p>
             </div>
@@ -338,11 +356,8 @@ export default function AIBattle({ group, groupId, onClose }) {
           >
             <Loader
               size={36}
-              style={{
-                color: "var(--primary)",
-                animation: "spin 1s linear infinite",
-              }}
               className="animate-spin"
+              style={{ color: "var(--primary)" }}
             />
             <p
               style={{
@@ -351,7 +366,7 @@ export default function AIBattle({ group, groupId, onClose }) {
                 fontSize: "16px",
               }}
             >
-              Gemini is generating questions...
+              Groq AI is generating questions...
             </p>
             <p
               style={{
@@ -370,7 +385,6 @@ export default function AIBattle({ group, groupId, onClose }) {
           <div
             style={{ display: "flex", flexDirection: "column", gap: "20px" }}
           >
-            {/* Header */}
             <div
               style={{
                 display: "flex",
@@ -387,7 +401,6 @@ export default function AIBattle({ group, groupId, onClose }) {
               >
                 Question {currentQ + 1} of {questions.length}
               </span>
-              {/* Timer */}
               <div
                 style={{
                   width: "44px",
@@ -408,7 +421,6 @@ export default function AIBattle({ group, groupId, onClose }) {
               </div>
             </div>
 
-            {/* Progress bar */}
             <div
               style={{
                 height: "4px",
@@ -428,14 +440,7 @@ export default function AIBattle({ group, groupId, onClose }) {
               />
             </div>
 
-            {/* Score display */}
-            <div
-              style={{
-                display: "flex",
-                gap: "8px",
-                flexWrap: "wrap",
-              }}
-            >
+            <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
               {group.members.map(function (m) {
                 return (
                   <div
@@ -479,7 +484,6 @@ export default function AIBattle({ group, groupId, onClose }) {
               })}
             </div>
 
-            {/* Question */}
             <div
               style={{
                 background: "var(--bg)",
@@ -502,9 +506,12 @@ export default function AIBattle({ group, groupId, onClose }) {
               </p>
             </div>
 
-            {/* Options */}
             <div
-              style={{ display: "flex", flexDirection: "column", gap: "10px" }}
+              style={{
+                display: "flex",
+                flexDirection: "column",
+                gap: "10px",
+              }}
             >
               {questions[currentQ].options.map(function (opt, i) {
                 const isCorrect = i === questions[currentQ].correct;
@@ -602,69 +609,32 @@ export default function AIBattle({ group, groupId, onClose }) {
               Battle Over!
             </h3>
 
-            {/* Winner */}
-            {(function () {
-              const winner = getMemberByUid(results.winnerId);
-              return (
-                <div
-                  style={{
-                    background: "linear-gradient(135deg, #1a1a00, #3a3a00)",
-                    border: "2px solid #FFD700",
-                    borderRadius: "16px",
-                    padding: "16px 24px",
-                    display: "flex",
-                    alignItems: "center",
-                    gap: "12px",
-                    width: "100%",
-                  }}
-                >
-                  <Crown size={20} fill="#FFD700" color="#FFD700" />
-                  <div
-                    style={{
-                      width: "40px",
-                      height: "40px",
-                      borderRadius: "50%",
-                      background: winner.color,
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      fontWeight: "bold",
-                      color: "#fff",
-                      fontSize: "16px",
-                    }}
-                  >
-                    {winner.avatar}
-                  </div>
-                  <div>
-                    <p
-                      style={{
-                        margin: 0,
-                        color: "#FFD700",
-                        fontFamily: "Inter, sans-serif",
-                        fontWeight: "700",
-                        fontSize: "16px",
-                      }}
-                    >
-                      {winner.uid === user.uid
-                        ? "You win! 🎉"
-                        : `${winner.name} wins!`}
-                    </p>
-                    <p
-                      style={{
-                        margin: 0,
-                        color: "#FFD700aa",
-                        fontFamily: "Inter, sans-serif",
-                        fontSize: "12px",
-                      }}
-                    >
-                      New Group Leader
-                    </p>
-                  </div>
-                </div>
-              );
-            })()}
+            <div
+              style={{
+                background: "#1a1a2e",
+                border: "1px solid var(--border)",
+                borderRadius: "14px",
+                padding: "14px 20px",
+                width: "100%",
+                textAlign: "center",
+              }}
+            >
+              <p
+                style={{
+                  margin: 0,
+                  color: "var(--text-secondary)",
+                  fontFamily: "Inter, sans-serif",
+                  fontSize: "13px",
+                }}
+              >
+                🏆 Group leader is now determined by{" "}
+                <span style={{ color: "#FFD700", fontWeight: "600" }}>
+                  weekly XP
+                </span>
+                . Earn the most XP this week to lead the group!
+              </p>
+            </div>
 
-            {/* Scoreboard */}
             <div
               style={{
                 width: "100%",

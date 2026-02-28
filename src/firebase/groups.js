@@ -29,6 +29,14 @@ function generateCode() {
   return Math.floor(100000 + Math.random() * 900000).toString();
 }
 
+function getWeekKey() {
+  const now = new Date();
+  const day = now.getDay();
+  const diff = now.getDate() - day + (day === 0 ? -6 : 1);
+  const monday = new Date(now.setDate(diff));
+  return `${monday.getFullYear()}-${monday.getMonth() + 1}-${monday.getDate()}`;
+}
+
 export async function createGroup(user, groupName) {
   const code = generateCode();
   const member = {
@@ -173,6 +181,7 @@ export async function leaveGroup(user, groupId, group) {
 
   await setDoc(doc(db, "users", user.uid), { groupId: null }, { merge: true });
 }
+
 export async function updateGroupName(groupId, newName) {
   await updateDoc(doc(db, "groups", groupId), { name: newName });
 }
@@ -185,25 +194,63 @@ export async function kickMember(groupId, targetUid, group) {
   await setDoc(doc(db, "users", targetUid), { groupId: null }, { merge: true });
 }
 
-export async function saveBattleResult(groupId, scores, winnerId) {
-  await updateDoc(doc(db, "groups", groupId), { leaderId: winnerId });
+export async function saveBattleResult(groupId, scores, group) {
+  const currentWeekKey = getWeekKey();
+  const weeklyXPMap = {};
+
+  // Step 1: Update XP and weeklyXP for each member
   for (const uid of Object.keys(scores)) {
     const xpEarned = scores[uid] * 20;
-    if (xpEarned > 0) {
+    try {
+      const ref = doc(db, "users", uid);
+      const snap = await getDoc(ref);
+      if (snap.exists()) {
+        const current = snap.data();
+        const newXP = (current.xp || 0) + xpEarned;
+        const isNewWeek = current.weekKey !== currentWeekKey;
+        const newWeeklyXP = isNewWeek
+          ? xpEarned
+          : (current.weeklyXP || 0) + xpEarned;
+
+        await updateDoc(ref, {
+          xp: newXP,
+          level: Math.floor(newXP / 1000) + 1,
+          weeklyXP: newWeeklyXP,
+          weekKey: currentWeekKey,
+        });
+
+        weeklyXPMap[uid] = newWeeklyXP;
+      }
+    } catch (e) {}
+  }
+
+  // Step 2: For members who didn't play, fetch their existing weeklyXP
+  for (const member of group.members) {
+    if (weeklyXPMap[member.uid] === undefined) {
       try {
-        const ref = doc(db, "users", uid);
-        const snap = await getDoc(ref);
+        const snap = await getDoc(doc(db, "users", member.uid));
         if (snap.exists()) {
-          const current = snap.data();
-          const newXP = (current.xp || 0) + xpEarned;
-          await updateDoc(ref, {
-            xp: newXP,
-            level: Math.floor(newXP / 1000) + 1,
-          });
+          const data = snap.data();
+          const isNewWeek = data.weekKey !== currentWeekKey;
+          weeklyXPMap[member.uid] = isNewWeek ? 0 : data.weeklyXP || 0;
         }
       } catch (e) {}
     }
   }
+
+  // Step 3: Leader = member with highest weeklyXP
+  let leaderId = group.leaderId;
+  let maxWeeklyXP = -1;
+
+  for (const member of group.members) {
+    const wx = weeklyXPMap[member.uid] ?? 0;
+    if (wx > maxWeeklyXP) {
+      maxWeeklyXP = wx;
+      leaderId = member.uid;
+    }
+  }
+
+  await updateDoc(doc(db, "groups", groupId), { leaderId });
 }
 
 export async function startBattle(groupId, subject) {
