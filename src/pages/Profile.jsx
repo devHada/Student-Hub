@@ -5,7 +5,7 @@ import { useAuth } from "../context/AuthContext";
 import { useTheme } from "../context/ThemeContext";
 import { getUserProfile, updateUserProfile } from "../firebase/users";
 import Sidebar from "../components/Sidebar";
-import { Check, Pencil, Clock, Zap, Star, Palette } from "lucide-react";
+import { Check, Pencil, Star, Palette } from "lucide-react";
 
 export default function Profile() {
   const { user } = useAuth();
@@ -17,6 +17,7 @@ export default function Profile() {
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [editName, setEditName] = useState("");
+  const [sidebarOpen, setSidebarOpen] = useState(false);
 
   const xp = profile?.xp || 0;
   const level = profile?.level || 1;
@@ -57,7 +58,7 @@ export default function Profile() {
         style={{ background: "var(--bg)" }}
       >
         <Sidebar />
-        <div className="flex-1 ml-64 flex items-center justify-center">
+        <div className="flex-1 lg:ml-64 flex items-center justify-center">
           <p
             style={{
               color: "var(--text-secondary)",
@@ -76,34 +77,77 @@ export default function Profile() {
       className="flex h-screen overflow-hidden"
       style={{ background: "var(--bg)" }}
     >
-      <Sidebar />
+      {/* Mobile overlay */}
+      {sidebarOpen && (
+        <div
+          onClick={() => setSidebarOpen(false)}
+          className="lg:hidden fixed inset-0 z-40"
+          style={{ background: "#00000066" }}
+        />
+      )}
 
-      <div className="flex-1 ml-64 flex flex-col h-screen overflow-hidden">
+      {/* Sidebar */}
+      <div
+        className={`
+        fixed lg:relative z-50 lg:z-auto h-full
+        transition-transform duration-300
+        ${sidebarOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"}
+      `}
+      >
+        <Sidebar />
+      </div>
+
+      <div className="flex-1 flex flex-col h-screen overflow-hidden lg:ml-64">
         {/* Navbar */}
         <div
-          className="flex items-center justify-between px-8 py-4 flex-shrink-0"
+          className="flex items-center justify-between px-4 md:px-8 py-4 flex-shrink-0"
           style={{ borderBottom: "1px solid var(--border)" }}
         >
-          <div>
-            <h2 className="text-2xl font-bold" style={{ color: "var(--text)" }}>
-              Profile & Settings
-            </h2>
-            <p
-              className="text-sm"
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => setSidebarOpen(true)}
+              className="lg:hidden p-2 rounded-xl"
               style={{
-                color: "var(--text-secondary)",
-                fontFamily: "Inter, sans-serif",
+                background: "var(--card)",
+                border: "1px solid var(--border)",
+                color: "var(--text)",
               }}
             >
-              Manage your identity and preferences
-            </p>
+              <svg
+                width="18"
+                height="18"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                viewBox="0 0 24 24"
+              >
+                <path d="M3 12h18M3 6h18M3 18h18" strokeLinecap="round" />
+              </svg>
+            </button>
+            <div>
+              <h2
+                className="text-lg md:text-2xl font-bold"
+                style={{ color: "var(--text)" }}
+              >
+                Profile & Settings
+              </h2>
+              <p
+                className="text-xs md:text-sm hidden sm:block"
+                style={{
+                  color: "var(--text-secondary)",
+                  fontFamily: "Inter, sans-serif",
+                }}
+              >
+                Manage your identity and preferences
+              </p>
+            </div>
           </div>
           <div
-            className="w-10 h-10 rounded-full flex items-center justify-center font-bold cursor-pointer"
+            className="w-9 h-9 md:w-10 md:h-10 rounded-full flex items-center justify-center font-bold cursor-pointer flex-shrink-0"
             style={{
               background: "var(--primary)",
               color: "var(--bg)",
-              fontSize: "16px",
+              fontSize: "15px",
             }}
           >
             {(profile?.name || user?.email)?.[0].toUpperCase()}
@@ -111,39 +155,40 @@ export default function Profile() {
         </div>
 
         {/* Content */}
-        <div className="flex-1 overflow-y-auto p-8">
-          <div className="grid grid-cols-3 gap-6">
-            {/* PROFILE CARD — full width */}
+        <div className="flex-1 overflow-y-auto p-4 md:p-8">
+          <div className="flex flex-col gap-4 md:gap-6 max-w-4xl mx-auto">
+            {/* PROFILE CARD */}
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.1 }}
-              className="col-span-3 rounded-2xl p-6"
+              className="rounded-2xl p-4 md:p-6"
               style={{
                 background: "var(--card)",
                 border: "1px solid var(--border)",
               }}
             >
-              {/* Avatar + name display */}
+              {/* Avatar + name */}
               <div
                 style={{
                   display: "flex",
                   alignItems: "center",
-                  gap: "20px",
-                  marginBottom: "28px",
+                  gap: "16px",
+                  marginBottom: "24px",
+                  flexWrap: "wrap",
                 }}
               >
                 <div
                   style={{
-                    width: "80px",
-                    height: "80px",
+                    width: "64px",
+                    height: "64px",
                     borderRadius: "50%",
                     background: "var(--primary)22",
                     border: "3px solid var(--primary)",
                     display: "flex",
                     alignItems: "center",
                     justifyContent: "center",
-                    fontSize: "28px",
+                    fontSize: "24px",
                     fontWeight: "bold",
                     color: "var(--primary)",
                     flexShrink: 0,
@@ -152,14 +197,17 @@ export default function Profile() {
                 >
                   {(profile?.name || user?.email)?.[0].toUpperCase()}
                 </div>
-                <div>
+                <div style={{ minWidth: 0 }}>
                   <h2
                     style={{
                       color: "var(--text)",
                       fontFamily: "Playfair Display, serif",
-                      fontSize: "22px",
+                      fontSize: "clamp(16px, 3vw, 22px)",
                       fontWeight: "700",
                       margin: 0,
+                      overflow: "hidden",
+                      textOverflow: "ellipsis",
+                      whiteSpace: "nowrap",
                     }}
                   >
                     {profile?.name || editName}
@@ -168,8 +216,11 @@ export default function Profile() {
                     style={{
                       color: "var(--text-secondary)",
                       fontFamily: "Inter, sans-serif",
-                      fontSize: "13px",
+                      fontSize: "12px",
                       margin: "4px 0 8px",
+                      overflow: "hidden",
+                      textOverflow: "ellipsis",
+                      whiteSpace: "nowrap",
                     }}
                   >
                     {user?.email}
@@ -193,20 +244,19 @@ export default function Profile() {
                 </div>
               </div>
 
-              {/* Divider */}
               <div
                 style={{
                   height: "1px",
                   background: "var(--border)",
-                  marginBottom: "24px",
+                  marginBottom: "20px",
                 }}
               />
 
               {/* Edit Name */}
-              <div style={{ marginBottom: "24px" }}>
+              <div style={{ marginBottom: "20px" }}>
                 <label
                   style={{
-                    fontSize: "12px",
+                    fontSize: "11px",
                     color: "var(--text-secondary)",
                     fontFamily: "Inter, sans-serif",
                     fontWeight: "600",
@@ -218,10 +268,11 @@ export default function Profile() {
                 >
                   Display Name
                 </label>
-                <div style={{ display: "flex", gap: "10px" }}>
+                <div style={{ display: "flex", gap: "10px", flexWrap: "wrap" }}>
                   <div
                     style={{
                       flex: 1,
+                      minWidth: "160px",
                       display: "flex",
                       alignItems: "center",
                       gap: "8px",
@@ -263,7 +314,7 @@ export default function Profile() {
                       background: saved ? "#2ecc71" : "var(--primary)",
                       border: "none",
                       borderRadius: "12px",
-                      padding: "10px 20px",
+                      padding: "10px 16px",
                       color: "var(--bg)",
                       fontFamily: "Inter, sans-serif",
                       fontSize: "13px",
@@ -283,19 +334,19 @@ export default function Profile() {
                     ) : saving ? (
                       "Saving..."
                     ) : (
-                      "Save Changes"
+                      "Save"
                     )}
                   </motion.button>
                 </div>
               </div>
 
-              {/* XP Bar inside card */}
+              {/* XP Bar */}
               <div>
                 <div
                   style={{
                     height: "1px",
                     background: "var(--border)",
-                    marginBottom: "20px",
+                    marginBottom: "16px",
                   }}
                 />
                 <div
@@ -304,6 +355,8 @@ export default function Profile() {
                     justifyContent: "space-between",
                     alignItems: "center",
                     marginBottom: "8px",
+                    flexWrap: "wrap",
+                    gap: "4px",
                   }}
                 >
                   <div
@@ -313,12 +366,12 @@ export default function Profile() {
                       gap: "8px",
                     }}
                   >
-                    <span style={{ fontSize: "18px" }}>⚡</span>
+                    <span style={{ fontSize: "16px" }}>⚡</span>
                     <span
                       style={{
                         color: "var(--text)",
                         fontFamily: "Inter, sans-serif",
-                        fontSize: "14px",
+                        fontSize: "13px",
                         fontWeight: "700",
                       }}
                     >
@@ -329,7 +382,7 @@ export default function Profile() {
                     style={{
                       color: "var(--text-secondary)",
                       fontFamily: "Inter, sans-serif",
-                      fontSize: "12px",
+                      fontSize: "11px",
                     }}
                   >
                     {1000 - xpProgress} XP to Level {level + 1}
@@ -362,7 +415,7 @@ export default function Profile() {
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.3 }}
-              className="col-span-3 rounded-2xl p-6"
+              className="rounded-2xl p-4 md:p-6"
               style={{
                 background: "var(--card)",
                 border: "1px solid var(--border)",
@@ -389,7 +442,7 @@ export default function Profile() {
                   App Theme
                 </h3>
               </div>
-              <div style={{ display: "flex", gap: "10px", flexWrap: "wrap" }}>
+              <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
                 {themes.map(function (t) {
                   const isActive = theme === t;
                   const icons = {
@@ -409,7 +462,7 @@ export default function Profile() {
                         changeTheme(t);
                       }}
                       style={{
-                        padding: "10px 18px",
+                        padding: "8px 14px",
                         borderRadius: "20px",
                         border: isActive
                           ? "2px solid var(--primary)"
@@ -417,12 +470,12 @@ export default function Profile() {
                         background: isActive ? "var(--primary)" : "var(--bg)",
                         color: isActive ? "var(--bg)" : "var(--text)",
                         fontFamily: "Inter, sans-serif",
-                        fontSize: "13px",
+                        fontSize: "12px",
                         fontWeight: isActive ? "700" : "400",
                         cursor: "pointer",
                         display: "flex",
                         alignItems: "center",
-                        gap: "6px",
+                        gap: "5px",
                         transition: "all 0.15s",
                         textTransform: "capitalize",
                       }}
@@ -439,7 +492,7 @@ export default function Profile() {
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.4 }}
-              className="col-span-3 rounded-2xl p-6"
+              className="rounded-2xl p-4 md:p-6"
               style={{
                 background: "var(--card)",
                 border: "1px solid var(--border)",
@@ -459,8 +512,8 @@ export default function Profile() {
               <div
                 style={{
                   display: "grid",
-                  gridTemplateColumns: "1fr 1fr 1fr",
-                  gap: "16px",
+                  gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))",
+                  gap: "12px",
                 }}
               >
                 {[
@@ -488,7 +541,7 @@ export default function Profile() {
                       style={{
                         background: "var(--bg)",
                         borderRadius: "12px",
-                        padding: "14px 16px",
+                        padding: "12px 14px",
                         border: "1px solid var(--border)",
                       }}
                     >
@@ -496,7 +549,7 @@ export default function Profile() {
                         style={{
                           color: "var(--text-secondary)",
                           fontFamily: "Inter, sans-serif",
-                          fontSize: "11px",
+                          fontSize: "10px",
                           fontWeight: "600",
                           textTransform: "uppercase",
                           letterSpacing: "0.5px",
@@ -509,9 +562,12 @@ export default function Profile() {
                         style={{
                           color: "var(--text)",
                           fontFamily: "Inter, sans-serif",
-                          fontSize: "13px",
+                          fontSize: "12px",
                           fontWeight: "600",
                           margin: 0,
+                          overflow: "hidden",
+                          textOverflow: "ellipsis",
+                          whiteSpace: "nowrap",
                         }}
                       >
                         {item.value}
@@ -527,7 +583,7 @@ export default function Profile() {
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.5 }}
-              className="col-span-3 rounded-2xl p-6"
+              className="rounded-2xl p-4 md:p-6"
               style={{
                 background: "var(--card)",
                 border: "1px solid var(--border)",
@@ -539,6 +595,8 @@ export default function Profile() {
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "space-between",
+                  flexWrap: "wrap",
+                  gap: "12px",
                 }}
               >
                 <div>
@@ -575,14 +633,16 @@ export default function Profile() {
                     fontSize: "12px",
                     fontWeight: "700",
                     border: "1px solid var(--primary)44",
+                    whiteSpace: "nowrap",
                   }}
                 >
                   Coming in v2
                 </div>
               </div>
             </motion.div>
+
+            <div style={{ height: "20px" }} />
           </div>
-          <div style={{ height: "40px" }} />
         </div>
       </div>
     </div>

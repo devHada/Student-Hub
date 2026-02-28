@@ -15,6 +15,7 @@ import Toolkit from "./pages/Toolkit";
 import Profile from "./pages/Profile";
 import Docs from "./pages/Docs";
 import Playground from "./pages/Playground";
+import NotFound from "./pages/NotFound";
 
 function ProtectedRoute({ children }) {
   const { user } = useAuth();
@@ -48,13 +49,14 @@ function App() {
           </ProtectedRoute>
         }
       />
-
       <Route path="/todos" element={<Todos />} />
       <Route path="/notes" element={<Notes />} />
       <Route path="/focus" element={<FocusTimer />} />
       <Route path="/board" element={<Board />} />
       <Route path="/docs" element={<Docs />} />
       <Route path="/playground" element={<Playground />} />
+
+      <Route path="*" element={<NotFound />} />
       <Route
         path="/dashboard"
         element={
@@ -87,7 +89,6 @@ function App() {
           </ProtectedRoute>
         }
       />
-
       <Route
         path="/toolkit"
         element={

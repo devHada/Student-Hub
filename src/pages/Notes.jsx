@@ -20,6 +20,8 @@ function Notes() {
   const [showNoteInput, setShowNoteInput] = useState(false);
   const [renamingId, setRenamingId] = useState(null);
   const [renameValue, setRenameValue] = useState("");
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [leftPanelOpen, setLeftPanelOpen] = useState(false);
   const [activeFormats, setActiveFormats] = useState({
     bold: false,
     italic: false,
@@ -76,10 +78,12 @@ function Notes() {
     setNewNoteName("");
     setShowNoteInput(false);
     setSelectedNote(note);
+    setLeftPanelOpen(false);
   }
 
   function openNote(note) {
     setSelectedNote(note);
+    setLeftPanelOpen(false);
   }
 
   function handleEditorInput() {
@@ -166,7 +170,6 @@ function Notes() {
   const filteredFolders = folders.filter((f) =>
     f.name.toLowerCase().includes(search.toLowerCase()),
   );
-
   const folderNotes = selectedFolder
     ? notes.filter((n) => n.folderId === selectedFolder.id)
     : [];
@@ -176,44 +179,156 @@ function Notes() {
       className="h-screen flex overflow-hidden"
       style={{ background: "var(--bg)" }}
     >
-      <Sidebar />
+      {/* Mobile sidebar overlay */}
+      <AnimatePresence>
+        {sidebarOpen && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={() => setSidebarOpen(false)}
+            style={{
+              position: "fixed",
+              inset: 0,
+              background: "#00000066",
+              zIndex: 40,
+              display: "block",
+            }}
+            className="lg:hidden"
+          />
+        )}
+      </AnimatePresence>
 
-      <div className="flex-1 ml-64 flex flex-col h-screen overflow-hidden">
-        {/* NAVBAR — same as todos */}
+      {/* Sidebar */}
+      <div
+        className={`
+        fixed lg:relative z-50 lg:z-auto h-full
+        transition-transform duration-300
+        ${sidebarOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"}
+      `}
+      >
+        <Sidebar />
+      </div>
+
+      <div className="flex-1 flex flex-col h-screen overflow-hidden lg:ml-64">
+        {/* NAVBAR */}
         <div
-          className="flex items-center justify-between px-8 py-4"
+          className="flex items-center justify-between px-4 md:px-8 py-4 flex-shrink-0"
           style={{
             background: "var(--bg)",
             borderBottom: "1px solid var(--border)",
           }}
         >
-          <div>
-            <h2 className="text-2xl font-bold" style={{ color: "var(--text)" }}>
-              📝 Take Notes
-            </h2>
-            <p className="text-sm" style={{ color: "var(--text-secondary)" }}>
-              Organize your thoughts by subject and topic
-            </p>
+          <div className="flex items-center gap-3">
+            {/* Mobile hamburger */}
+            <button
+              onClick={() => setSidebarOpen(true)}
+              className="lg:hidden p-2 rounded-xl"
+              style={{
+                background: "var(--card)",
+                border: "1px solid var(--border)",
+                color: "var(--text)",
+              }}
+            >
+              <svg
+                width="18"
+                height="18"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                viewBox="0 0 24 24"
+              >
+                <path d="M3 12h18M3 6h18M3 18h18" strokeLinecap="round" />
+              </svg>
+            </button>
+            {/* Mobile left panel toggle */}
+            <button
+              onClick={() => setLeftPanelOpen(true)}
+              className="lg:hidden p-2 rounded-xl"
+              style={{
+                background: "var(--card)",
+                border: "1px solid var(--border)",
+                color: "var(--text)",
+              }}
+            >
+              📁
+            </button>
+            <div>
+              <h2
+                className="text-lg md:text-2xl font-bold"
+                style={{ color: "var(--text)" }}
+              >
+                📝 Take Notes
+              </h2>
+              <p
+                className="text-xs md:text-sm hidden sm:block"
+                style={{ color: "var(--text-secondary)" }}
+              >
+                Organize your thoughts by subject and topic
+              </p>
+            </div>
           </div>
           <div
             onClick={() => navigate("/profile")}
-            className="w-10 h-10 rounded-full flex items-center justify-center text-white font-bold"
-            style={{ background: "var(--primary)", cursor: "pointer" }}
+            className="w-9 h-9 md:w-10 md:h-10 rounded-full flex items-center justify-center text-white font-bold text-sm"
+            style={{
+              background: "var(--primary)",
+              cursor: "pointer",
+              flexShrink: 0,
+            }}
           >
             {name[0].toUpperCase()}
           </div>
         </div>
 
-        {/* CONTENT — two panels */}
-        <div className="flex-1 flex overflow-hidden">
-          {/* LEFT PANEL */}
+        {/* CONTENT */}
+        <div className="flex-1 flex overflow-hidden relative">
+          {/* LEFT PANEL — mobile drawer + desktop fixed */}
+          <AnimatePresence>
+            {leftPanelOpen && (
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                onClick={() => setLeftPanelOpen(false)}
+                className="lg:hidden fixed inset-0 z-30"
+                style={{ background: "#00000066" }}
+              />
+            )}
+          </AnimatePresence>
+
           <div
-            className="w-64 flex flex-col overflow-hidden flex-shrink-0"
+            className={`
+            fixed lg:relative z-40 lg:z-auto top-0 left-0 h-full lg:h-auto
+            w-72 lg:w-64 flex flex-col overflow-hidden flex-shrink-0
+            transition-transform duration-300
+            ${leftPanelOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"}
+          `}
             style={{
               borderRight: "1px solid var(--border)",
               background: "var(--bg-secondary)",
+              marginTop: leftPanelOpen ? "0" : undefined,
             }}
           >
+            {/* Mobile close */}
+            <div
+              className="lg:hidden flex items-center justify-between p-3"
+              style={{ borderBottom: "1px solid var(--border)" }}
+            >
+              <span
+                className="text-sm font-bold"
+                style={{ color: "var(--text)" }}
+              >
+                Folders
+              </span>
+              <button
+                onClick={() => setLeftPanelOpen(false)}
+                style={{ color: "var(--text-secondary)" }}
+              >
+                ✕
+              </button>
+            </div>
+
             {/* SEARCH */}
             <div
               className="p-3"
@@ -449,25 +564,24 @@ function Notes() {
           </div>
 
           {/* EDITOR PANEL */}
-          <div className="flex-1 flex flex-col overflow-hidden">
+          <div className="flex-1 flex flex-col overflow-hidden min-w-0">
             {selectedNote ? (
               <>
                 {/* PATH + TOOLBAR */}
                 <div
-                  className="flex items-center justify-between px-6 py-3 flex-shrink-0"
+                  className="flex flex-wrap items-center justify-between px-4 md:px-6 py-3 gap-2 flex-shrink-0"
                   style={{
                     borderBottom: "1px solid var(--border)",
                     background: "var(--card)",
                   }}
                 >
                   <p
-                    className="text-xs"
+                    className="text-xs truncate max-w-[180px] md:max-w-none"
                     style={{ color: "var(--text-secondary)" }}
                   >
                     📁 {selectedFolder?.name} → 📄 {selectedNote?.name}
                   </p>
-
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-1 md:gap-2 flex-wrap">
                     {[
                       { label: "B", cmd: "bold", tw: "font-bold", key: "bold" },
                       {
@@ -489,7 +603,7 @@ function Notes() {
                           e.preventDefault();
                           applyFormat(btn.cmd);
                         }}
-                        className={`w-8 h-8 rounded-lg text-sm ${btn.tw} transition-all`}
+                        className={`w-7 h-7 md:w-8 md:h-8 rounded-lg text-xs md:text-sm ${btn.tw} transition-all`}
                         style={{
                           background: activeFormats[btn.key]
                             ? "var(--primary)"
@@ -535,7 +649,7 @@ function Notes() {
                         }
                         handleEditorInput();
                       }}
-                      className="text-xs px-3 py-1 rounded-lg font-medium transition-all"
+                      className="text-xs px-2 md:px-3 py-1 rounded-lg font-medium transition-all"
                       style={{
                         background: activeFormats.highlight
                           ? "#f59e0b"
@@ -553,11 +667,11 @@ function Notes() {
 
                 {/* NOTE TITLE */}
                 <div
-                  className="px-8 py-4 flex-shrink-0"
+                  className="px-4 md:px-8 py-3 md:py-4 flex-shrink-0"
                   style={{ borderBottom: "1px solid var(--border)" }}
                 >
                   <h2
-                    className="text-2xl font-bold"
+                    className="text-xl md:text-2xl font-bold"
                     style={{ color: "var(--text)" }}
                   >
                     {selectedNote.name}
@@ -572,7 +686,7 @@ function Notes() {
                   onInput={handleEditorInput}
                   onKeyUp={checkFormats}
                   onMouseUp={checkFormats}
-                  className="flex-1 p-8 outline-none overflow-y-auto text-sm leading-relaxed"
+                  className="flex-1 p-4 md:p-8 outline-none overflow-y-auto text-sm leading-relaxed"
                   style={{
                     color: "var(--text)",
                     background: "var(--bg)",
@@ -585,21 +699,28 @@ function Notes() {
               </>
             ) : (
               <div
-                className="flex-1 flex flex-col items-center justify-center"
+                className="flex-1 flex flex-col items-center justify-center px-4"
                 style={{ color: "var(--text-secondary)" }}
               >
-                <div className="text-6xl mb-4">📝</div>
+                <div className="text-5xl md:text-6xl mb-4">📝</div>
                 <p
-                  className="text-xl font-bold"
+                  className="text-lg md:text-xl font-bold text-center"
                   style={{ color: "var(--text)" }}
                 >
                   Take Notes
                 </p>
-                <p className="text-sm mt-2">
+                <p className="text-xs md:text-sm mt-2 text-center max-w-xs">
                   {folders.length === 0
                     ? "Create a folder first, then add notes inside it"
                     : "Select a folder and create a note to start writing"}
                 </p>
+                <button
+                  onClick={() => setLeftPanelOpen(true)}
+                  className="lg:hidden mt-4 px-4 py-2 rounded-xl text-sm font-semibold"
+                  style={{ background: "var(--primary)", color: "var(--bg)" }}
+                >
+                  Open Folders
+                </button>
               </div>
             )}
           </div>
